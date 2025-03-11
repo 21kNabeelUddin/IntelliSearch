@@ -9,7 +9,7 @@ services:
         value: true
       - key: PORT
         value: 10000
-      - key: TOGETHER_AI_API_KEY
+      - key: TOGETHER_API_KEY
         sync: false
       - key: ALLOWED_ORIGINS
-        value: https://your-frontend-domain.com 
+        value: https://intellisearch-rho.vercel.app 

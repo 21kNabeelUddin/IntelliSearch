@@ -1,0 +1,4 @@
+import os
+
+# API Key for Together AI
+TOGETHER_AI_API_KEY = os.getenv("TOGETHER_AI_API_KEY", "9ffc03c10d58e68875f0f5b66c7d99ddc88d2b5cc817da63100791d6307741c6")

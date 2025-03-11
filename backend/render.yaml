@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: intellisearch-backend
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python models/inference.py
+    envVars:
+      - key: PRODUCTION
+        value: true
+      - key: PORT
+        value: 10000
+      - key: TOGETHER_AI_API_KEY
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: https://your-frontend-domain.com 

@@ -39,7 +39,7 @@ Answer: `;
         }
 
         const data = await response.json();
-        return new Response(JSON.stringify({ response: data.output.choices[0].text.trim() }), { status: 200 });
+        return NextResponse.json({ response: data.output.choices[0].text.trim() });
     } catch (error) {
         console.error("Search API error:", error);
         return new Response(JSON.stringify({ error: "Server error" }), { status: 500 });

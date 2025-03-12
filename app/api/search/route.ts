@@ -7,14 +7,8 @@ export async function POST(req: Request) {
             return new Response(JSON.stringify({ error: "Query is required" }), { status: 400 });
         }
 
-        // Improved prompt template
-        const prompt = `You are a helpful AI assistant with expertise in programming, technology, and general knowledge. 
-Please provide a clear, direct, and accurate answer to the following question. 
-If the question is about code or technical topics, include relevant code examples or step-by-step instructions.
-
-Question: ${query}
-
-Answer: `;
+        // Concise prompt template to minimize tokens while maintaining quality
+        const prompt = `Question: ${query}\nAnswer: `;
 
         const response = await fetch('https://api.together.xyz/inference', {
             method: 'POST',
@@ -25,10 +19,11 @@ Answer: `;
             body: JSON.stringify({
                 model: "meta-llama/Meta-Llama-3-70B-Instruct-Turbo",
                 prompt: prompt,
-                max_tokens: 800,
+                max_tokens: 300, // Reduced for cost efficiency
                 temperature: 0.7,
                 top_k: 50,
                 top_p: 0.7,
+                repetition_penalty: 1.1 // Helps generate more concise responses
             })
         });
 

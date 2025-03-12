@@ -3,7 +3,7 @@ services:
     name: intellisearch-backend
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: cd backend && gunicorn app:app
+    startCommand: cd backend && gunicorn --config gunicorn_config.py app:app
     envVars:
       - key: PRODUCTION
         value: true

@@ -12,7 +12,7 @@ load_dotenv()
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # Get environment variables
-together.api_key = os.getenv("TOGETHER_API_KEY")
+TOGETHER_AI_API_KEY = os.getenv("TOGETHER_AI_API_KEY")
 PORT = int(os.getenv("PORT", 5000))
 PRODUCTION = os.getenv("PRODUCTION", "false").lower() == "true"
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
@@ -20,6 +20,9 @@ ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",
 app = Flask(__name__)
 # Configure CORS with specific origins in production
 CORS(app, origins=ALLOWED_ORIGINS if PRODUCTION else "*")
+
+# Initialize API key
+together.api_key = TOGETHER_AI_API_KEY
 
 @app.route("/", methods=["GET"])
 def home():

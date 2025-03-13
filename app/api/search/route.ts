@@ -13,16 +13,28 @@ export async function POST(req: Request) {
             return new Response(JSON.stringify({ error: "Query is required" }), { status: 400 });
         }
 
-        // Detect if it's a code-related query
-        const isCodeQuery = /code|program|algorithm|function|implementation/i.test(query);
+        // Normalize the query to handle different phrasings
+        const normalizedQuery = query.toLowerCase().trim();
+        
+        // More comprehensive code-related query detection
+        const isCodeQuery = /code|program|algorithm|function|implementation|problem|solution|write|give|provide/i.test(normalizedQuery) && 
+                          /(c\+\+|java|python|javascript|typescript|ruby|php|golang|c#)/i.test(normalizedQuery);
         
         // Adjust max tokens and prompt based on query type
-        const maxTokens = isCodeQuery ? 1000 : 500;
-        const prompt = isCodeQuery
-            ? `Question: ${query}\nProvide a clear, well-commented implementation. Include explanations where necessary.\nAnswer:\n`
-            : `Question: ${query}\nAnswer: `;
+        const maxTokens = isCodeQuery ? 1500 : 500;
+        
+        // Enhanced prompt template
+        let prompt;
+        if (isCodeQuery) {
+            // Extract the programming language from the query
+            const langMatch = normalizedQuery.match(/(c\+\+|java|python|javascript|typescript|ruby|php|golang|c#)/i);
+            const language = langMatch ? langMatch[0].toUpperCase() : 'code';
+            prompt = `Question: ${query}\nProvide a complete, well-commented ${language} implementation. Include explanations for key concepts.\nAnswer:\n`;
+        } else {
+            prompt = `Question: ${query}\nAnswer: `;
+        }
 
-        console.log("Making API request to Together AI...");
+        console.log("Making API request to Together AI...", { isCodeQuery, maxTokens });
         const response = await fetch('https://api.together.xyz/inference', {
             method: 'POST',
             headers: {
@@ -33,15 +45,15 @@ export async function POST(req: Request) {
                 model: "meta-llama/Meta-Llama-3-70B-Instruct-Turbo",
                 prompt: prompt,
                 max_tokens: maxTokens,
-                temperature: isCodeQuery ? 0.3 : 0.7, // Lower temperature for code
-                top_k: 50,
-                top_p: isCodeQuery ? 0.9 : 0.7, // Higher top_p for code
-                repetition_penalty: 1.1
+                temperature: isCodeQuery ? 0.2 : 0.7, // Even lower temperature for code
+                top_k: isCodeQuery ? 40 : 50,
+                top_p: isCodeQuery ? 0.95 : 0.7, // Higher top_p for code
+                repetition_penalty: isCodeQuery ? 1.05 : 1.1
             })
         });
 
         if (!response.ok) {
-            const errorData = await response.json();
+            const errorData = await response.json().catch(() => ({ error: "Failed to parse error response" }));
             console.error("Together AI error response:", {
                 status: response.status,
                 statusText: response.statusText,

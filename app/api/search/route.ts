@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 // Utility function to add timeout to fetch
-const fetchWithTimeout = async (url: string, options: RequestInit, timeout = 30000) => {
+const fetchWithTimeout = async (url: string, options: RequestInit, timeout = 120000) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
@@ -84,7 +84,7 @@ export async function POST(req: Request) {
         }
 
         // Debug: Log API request preparation
-        const prompt = `Question: ${body.query}\nAnswer: `;
+        const prompt = `${body.query}`;  // Simplified prompt format
         console.log("Prepared prompt:", prompt);
 
         // Together AI API endpoint
@@ -94,7 +94,7 @@ export async function POST(req: Request) {
         const requestBody = {
             model: "mistralai/Mixtral-8x7B-Instruct-v0.1",
             prompt: prompt,
-            max_tokens: 500,  // Reduced from 800 for faster responses
+            max_tokens: 1500,  // Increased token limit for longer responses
             temperature: 0.7,
             top_k: 50,
             top_p: 0.7,

@@ -52,7 +52,10 @@ const validateAPIResponse = (data: any) => {
 
 export async function POST(req: Request) {
     try {
-        // API key validation with correct environment variable name
+        // Debug: Log environment check
+        console.log("Checking environment variables...");
+        console.log("TOGETHER_AI_API_KEY exists:", !!process.env.TOGETHER_AI_API_KEY);
+        
         const apiKey = process.env.TOGETHER_AI_API_KEY;
         if (!apiKey?.trim()) {
             console.error("API key missing or empty");
@@ -65,23 +68,12 @@ export async function POST(req: Request) {
             });
         }
 
-        // Request body validation
-        let query;
-        try {
-            const body = await req.json();
-            query = body.query;
-        } catch (error) {
-            console.error("Failed to parse request body:", error);
-            return new Response(JSON.stringify({ 
-                error: "Invalid request", 
-                message: "Invalid JSON in request body" 
-            }), { 
-                status: 400,
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
+        // Debug: Log request parsing
+        console.log("Parsing request body...");
+        const body = await req.json();
+        console.log("Request body:", { query: body.query });
 
-        if (!query?.trim()) {
+        if (!body.query?.trim()) {
             return new Response(JSON.stringify({ 
                 error: "Invalid request", 
                 message: "Query is required" 
@@ -91,20 +83,32 @@ export async function POST(req: Request) {
             });
         }
 
-        // Log the API key length (safely)
-        console.log("API Key length:", apiKey.length);
-        console.log("First 4 chars of API key:", apiKey.substring(0, 4));
+        // Debug: Log API request preparation
+        const prompt = `Question: ${body.query}\nAnswer: `;
+        console.log("Prepared prompt:", prompt);
 
-        // Prepare request
-        const prompt = `Question: ${query}\nAnswer: `;
-        
-        // API endpoint
+        // Together AI API endpoint
         const API_URL = 'https://api.together.xyz/inference';
         
-        console.log("Making API request...", {
-            url: API_URL,
+        // Debug: Log API request details
+        const requestBody = {
             model: "meta-llama/Meta-Llama-3-70B-Instruct-Turbo",
-            queryLength: query.length
+            prompt: prompt,
+            max_tokens: 800,
+            temperature: 0.7,
+            top_k: 50,
+            top_p: 0.7,
+            repetition_penalty: 1.1
+        };
+        
+        console.log("Making API request to:", API_URL);
+        console.log("Request configuration:", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey.substring(0, 4)}...` // Log first 4 chars only
+            },
+            requestBody
         });
 
         const response = await fetch(API_URL, {
@@ -113,20 +117,15 @@ export async function POST(req: Request) {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${apiKey}`
             },
-            body: JSON.stringify({
-                model: "meta-llama/Meta-Llama-3-70B-Instruct-Turbo",
-                prompt: prompt,
-                max_tokens: 800,
-                temperature: 0.7,
-                top_k: 50,
-                top_p: 0.7,
-                repetition_penalty: 1.1
-            })
+            body: JSON.stringify(requestBody)
         });
 
-        // Log full response details
-        console.log("Response status:", response.status);
-        console.log("Response headers:", Object.fromEntries(response.headers.entries()));
+        // Debug: Log response details
+        console.log("API Response received:", {
+            status: response.status,
+            statusText: response.statusText,
+            headers: Object.fromEntries(response.headers.entries())
+        });
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -134,7 +133,7 @@ export async function POST(req: Request) {
                 status: response.status,
                 statusText: response.statusText,
                 headers: Object.fromEntries(response.headers.entries()),
-                body: errorText
+                errorText
             });
             
             return new Response(JSON.stringify({ 
@@ -147,12 +146,15 @@ export async function POST(req: Request) {
             });
         }
 
-        // Parse response
+        // Debug: Log response parsing
+        console.log("Parsing API response...");
+        const responseText = await response.text();
+        console.log("Raw response:", responseText);
+
         let data;
         try {
-            const responseText = await response.text();
-            console.log("Raw API Response:", responseText);
             data = JSON.parse(responseText);
+            console.log("Parsed response data:", data);
         } catch (error) {
             console.error("Failed to parse API response:", error);
             return new Response(JSON.stringify({ 
@@ -164,7 +166,8 @@ export async function POST(req: Request) {
             });
         }
 
-        // Validate response structure
+        // Debug: Log response validation
+        console.log("Validating response structure...");
         if (!data?.output?.choices?.[0]?.text) {
             console.error("Invalid response structure:", data);
             return new Response(JSON.stringify({ 
@@ -176,7 +179,8 @@ export async function POST(req: Request) {
             });
         }
 
-        // Return successful response
+        // Debug: Log successful response
+        console.log("Successfully processed response");
         return new Response(JSON.stringify({ 
             response: data.output.choices[0].text.trim()
         }), { 
@@ -185,7 +189,13 @@ export async function POST(req: Request) {
         });
 
     } catch (error) {
-        console.error("Unexpected error:", error);
+        // Debug: Log any unexpected errors
+        console.error("Unexpected error:", {
+            name: error.name,
+            message: error.message,
+            stack: error.stack
+        });
+
         return new Response(JSON.stringify({ 
             error: "Server error",
             message: error.message || "An unexpected error occurred"

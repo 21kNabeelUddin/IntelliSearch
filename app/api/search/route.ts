@@ -92,9 +92,9 @@ export async function POST(req: Request) {
         
         // Debug: Log API request details
         const requestBody = {
-            model: "meta-llama/Meta-Llama-3-70B-Instruct-Turbo",
+            model: "mistralai/Mixtral-8x7B-Instruct-v0.1",
             prompt: prompt,
-            max_tokens: 800,
+            max_tokens: 500,  // Reduced from 800 for faster responses
             temperature: 0.7,
             top_k: 50,
             top_p: 0.7,
@@ -111,14 +111,15 @@ export async function POST(req: Request) {
             requestBody
         });
 
-        const response = await fetch(API_URL, {
+        // Use fetchWithRetry instead of fetchWithTimeout
+        const response = await fetchWithRetry(API_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${apiKey}`
             },
             body: JSON.stringify(requestBody)
-        });
+        }, 3); // 3 retries
 
         // Debug: Log response details
         console.log("API Response received:", {

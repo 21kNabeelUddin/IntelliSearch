@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 // Utility function to add timeout to fetch
-const fetchWithTimeout = async (url: string, options: RequestInit, timeout = 10000) => {
+const fetchWithTimeout = async (url: string, options: RequestInit, timeout = 30000) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
@@ -52,10 +52,10 @@ const validateAPIResponse = (data: any) => {
 
 export async function POST(req: Request) {
     try {
-        // API key validation
+        // API key validation with detailed logging
         const apiKey = process.env.TOGETHER_API_KEY;
         if (!apiKey?.trim()) {
-            console.error("Together AI API key is not set");
+            console.error("API key missing or empty");
             return new Response(JSON.stringify({ 
                 error: "Configuration error", 
                 message: "API key not configured" 
@@ -66,7 +66,21 @@ export async function POST(req: Request) {
         }
 
         // Request body validation
-        const { query } = await req.json().catch(() => ({}));
+        let query;
+        try {
+            const body = await req.json();
+            query = body.query;
+        } catch (error) {
+            console.error("Failed to parse request body:", error);
+            return new Response(JSON.stringify({ 
+                error: "Invalid request", 
+                message: "Invalid JSON in request body" 
+            }), { 
+                status: 400,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+
         if (!query?.trim()) {
             return new Response(JSON.stringify({ 
                 error: "Invalid request", 
@@ -77,11 +91,16 @@ export async function POST(req: Request) {
             });
         }
 
-        // Prepare request
-        const prompt = `Question: ${query}\nAnswer: `;
-        console.log("Making API request to Together AI...", { queryLength: query.length });
+        // Prepare request with system prompt
+        const prompt = `You are a helpful AI assistant. Please provide a clear and accurate response to the following question:\n\nQuestion: ${query}\n\nAnswer:`;
+        
+        console.log("Making API request to Together AI...", {
+            queryLength: query.length,
+            modelName: "meta-llama/Meta-Llama-3-70B-Instruct-Turbo"
+        });
 
-        const requestOptions = {
+        // Make API request
+        const response = await fetchWithTimeout('https://api.together.xyz/inference', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -96,62 +115,69 @@ export async function POST(req: Request) {
                 top_p: 0.7,
                 repetition_penalty: 1.1
             })
-        };
+        });
 
-        // Make API request with retry mechanism
-        const response = await fetchWithRetry('https://api.together.xyz/inference', requestOptions);
+        // Log response status
+        console.log("API Response Status:", response.status);
         
-        // Parse and validate response
-        const rawData = await response.text();
+        // Handle non-200 responses
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error("API Error Response:", {
+                status: response.status,
+                statusText: response.statusText,
+                body: errorText
+            });
+            
+            return new Response(JSON.stringify({ 
+                error: "AI service error",
+                message: `API returned status ${response.status}`,
+                details: errorText
+            }), { 
+                status: response.status,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+
+        // Parse response
         let data;
         try {
-            data = JSON.parse(rawData);
+            const responseText = await response.text();
+            console.log("Raw API Response:", responseText);
+            data = JSON.parse(responseText);
         } catch (error) {
-            console.error("Failed to parse API response:", rawData);
+            console.error("Failed to parse API response:", error);
             return new Response(JSON.stringify({ 
                 error: "Invalid response", 
-                message: "Failed to parse API response" 
+                message: "Failed to parse API response"
             }), { 
                 status: 500,
                 headers: { 'Content-Type': 'application/json' }
             });
         }
 
-        // Validate and return response
-        const validatedResponse = validateAPIResponse(data);
-        console.log("Successfully received and validated response");
-        
+        // Validate response structure
+        if (!data?.output?.choices?.[0]?.text) {
+            console.error("Invalid response structure:", data);
+            return new Response(JSON.stringify({ 
+                error: "Invalid response", 
+                message: "Unexpected response format from AI service"
+            }), { 
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+
+        // Return successful response
         return new Response(JSON.stringify({ 
-            response: validatedResponse 
+            response: data.output.choices[0].text.trim()
         }), { 
             status: 200,
             headers: { 'Content-Type': 'application/json' }
         });
 
     } catch (error) {
-        console.error("Search API error:", error);
-        
-        // Categorize errors
-        if (error.name === 'AbortError') {
-            return new Response(JSON.stringify({ 
-                error: "Timeout", 
-                message: "Request timed out" 
-            }), { 
-                status: 504,
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-
-        if (error.message?.includes('Max retries exceeded')) {
-            return new Response(JSON.stringify({ 
-                error: "Service unavailable", 
-                message: "Failed after multiple attempts" 
-            }), { 
-                status: 503,
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-
+        console.error("Unexpected error:", error);
         return new Response(JSON.stringify({ 
             error: "Server error",
             message: error.message || "An unexpected error occurred"

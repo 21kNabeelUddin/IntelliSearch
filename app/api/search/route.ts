@@ -52,13 +52,13 @@ const validateAPIResponse = (data: any) => {
 
 export async function POST(req: Request) {
     try {
-        // API key validation with detailed logging
-        const apiKey = process.env.TOGETHER_API_KEY;
+        // API key validation with correct environment variable name
+        const apiKey = process.env.TOGETHER_AI_API_KEY;
         if (!apiKey?.trim()) {
             console.error("API key missing or empty");
             return new Response(JSON.stringify({ 
                 error: "Configuration error", 
-                message: "API key not configured" 
+                message: "API key not configured (TOGETHER_AI_API_KEY)" 
             }), { 
                 status: 500,
                 headers: { 'Content-Type': 'application/json' }
@@ -91,16 +91,23 @@ export async function POST(req: Request) {
             });
         }
 
-        // Prepare request with system prompt
-        const prompt = `You are a helpful AI assistant. Please provide a clear and accurate response to the following question:\n\nQuestion: ${query}\n\nAnswer:`;
+        // Log the API key length (safely)
+        console.log("API Key length:", apiKey.length);
+        console.log("First 4 chars of API key:", apiKey.substring(0, 4));
+
+        // Prepare request
+        const prompt = `Question: ${query}\nAnswer: `;
         
-        console.log("Making API request to Together AI...", {
-            queryLength: query.length,
-            modelName: "meta-llama/Meta-Llama-3-70B-Instruct-Turbo"
+        // API endpoint
+        const API_URL = 'https://api.together.xyz/inference';
+        
+        console.log("Making API request...", {
+            url: API_URL,
+            model: "meta-llama/Meta-Llama-3-70B-Instruct-Turbo",
+            queryLength: query.length
         });
 
-        // Make API request
-        const response = await fetchWithTimeout('https://api.together.xyz/inference', {
+        const response = await fetch(API_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -117,15 +124,16 @@ export async function POST(req: Request) {
             })
         });
 
-        // Log response status
-        console.log("API Response Status:", response.status);
-        
-        // Handle non-200 responses
+        // Log full response details
+        console.log("Response status:", response.status);
+        console.log("Response headers:", Object.fromEntries(response.headers.entries()));
+
         if (!response.ok) {
             const errorText = await response.text();
-            console.error("API Error Response:", {
+            console.error("API Error Details:", {
                 status: response.status,
                 statusText: response.statusText,
+                headers: Object.fromEntries(response.headers.entries()),
                 body: errorText
             });
             
